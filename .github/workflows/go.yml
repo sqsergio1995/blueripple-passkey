@@ -1,0 +1,23 @@
+name: Build and test
+on: [push, pull_request]
+jobs:
+  build:
+    name: Build/Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: Check out source
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Build
+      run: go build ./...
+
+    - name: Test
+      run: go test ./... --race --timeout 60s

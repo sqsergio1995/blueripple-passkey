@@ -1,0 +1,23 @@
+[Unit]
+Description=Authentik BioKey (TPM-backed biometric passkey)
+After=graphical-session.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/authentik-biometric/config.env
+ExecStart=%h/.local/bin/authentik-biometric --tray
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/share/authentik-biometric
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=default.target

@@ -1,4 +1,4 @@
-# Allow the active desktop session to create the virtual FIDO2 device.
+# Allow BlueRipple Passkey in the active desktop session to create the virtual FIDO2 device.
 KERNEL=="uhid", MODE="0660", TAG+="uaccess"
 
 # Tag virtual FIDO2 hidraw device for snap browser access.

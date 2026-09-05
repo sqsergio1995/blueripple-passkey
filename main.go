@@ -16,13 +16,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/homepalaca/authentik-biometric/ctap2"
-	"github.com/homepalaca/authentik-biometric/fidohid"
-	"github.com/homepalaca/authentik-biometric/memory"
-	"github.com/homepalaca/authentik-biometric/tpm"
-	"github.com/homepalaca/authentik-biometric/tray"
-	"github.com/homepalaca/authentik-biometric/usbmon"
-	"github.com/homepalaca/authentik-biometric/userpresence"
+	"github.com/sqsergio1995/blueripple-passkey/ctap2"
+	"github.com/sqsergio1995/blueripple-passkey/fidohid"
+	"github.com/sqsergio1995/blueripple-passkey/memory"
+	"github.com/sqsergio1995/blueripple-passkey/tpm"
+	"github.com/sqsergio1995/blueripple-passkey/tray"
+	"github.com/sqsergio1995/blueripple-passkey/usbmon"
+	"github.com/sqsergio1995/blueripple-passkey/userpresence"
 )
 
 var (
@@ -41,7 +41,7 @@ func (values *stringListFlag) Set(value string) error {
 var (
 	backend      = flag.String("backend", "tpm", "Backend to use: tpm or memory")
 	device       = flag.String("device", "/dev/tpmrm0", "TPM device path")
-	showTray     = flag.Bool("tray", true, "Show the Authentik BioKey tray icon")
+	showTray     = flag.Bool("tray", true, "Show the BlueRipple Passkey tray icon")
 	autoSwitch   = flag.Bool("auto-switch", true, "Automatically disable virtual key when a YubiKey is plugged in (tray mode only)")
 	checkOnly    = flag.Bool("check", false, "Check configuration and Linux prerequisites, then exit")
 	showVersion  = flag.Bool("version", false, "Print version information, then exit")
@@ -49,20 +49,25 @@ var (
 )
 
 func main() {
-	flag.Var(&allowedRPIDs, "allowed-rp-id", "Exact Authentik hostname to allow (repeatable)")
+	flag.Var(&allowedRPIDs, "allowed-rp-id", "Exact authentik hostname to allow (repeatable)")
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("authentik-biometric %s (%s)\n", version, buildTime)
+		fmt.Printf("blueripple-passkey %s (%s)\n", version, buildTime)
 		return
 	}
 
-	rpIDs, err := configuredRPIDs(allowedRPIDs, os.Getenv("AUTHENTIK_BIOMETRIC_RP_IDS"))
+	rpIDEnvironment := os.Getenv("BLUERIPPLE_PASSKEY_RP_IDS")
+	if rpIDEnvironment == "" {
+		// Keep existing installations working while they transition to the new name.
+		rpIDEnvironment = os.Getenv("AUTHENTIK_BIOMETRIC_RP_IDS")
+	}
+	rpIDs, err := configuredRPIDs(allowedRPIDs, rpIDEnvironment)
 	if err != nil {
-		log.Fatalf("Invalid Authentik relying-party configuration: %v", err)
+		log.Fatalf("Invalid authentik relying-party configuration: %v", err)
 	}
 	if len(rpIDs) == 0 {
-		log.Fatal("No Authentik host configured. Set AUTHENTIK_BIOMETRIC_RP_IDS or pass --allowed-rp-id")
+		log.Fatal("No authentik host configured. Set BLUERIPPLE_PASSKEY_RP_IDS or pass --allowed-rp-id")
 	}
 
 	if *checkOnly {
@@ -76,7 +81,7 @@ func main() {
 	log.SetOutput(os.Stderr)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	log.Printf("authentik-biometric starting with backend=%s allowed_rp_ids=%s", *backend, strings.Join(rpIDs, ","))
+	log.Printf("blueripple-passkey starting with backend=%s allowed_rp_ids=%s", *backend, strings.Join(rpIDs, ","))
 
 	// Initialize the signer backend
 	var signer ctap2.Signer
@@ -107,7 +112,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get home directory: %v", err)
 	}
-	storagePath := filepath.Join(homeDir, ".local", "share", "authentik-biometric", "credentials.json")
+	storagePath := credentialStoragePath(homeDir)
 	storage, err := ctap2.NewCredentialStorage(storagePath)
 	if err != nil {
 		log.Fatalf("Failed to create credential storage: %v", err)
@@ -135,7 +140,7 @@ func runDaemonMode(ctap2Handler *ctap2.Handler) {
 
 // runDaemonHeadless runs the virtual FIDO2 device without a tray icon.
 func runDaemonHeadless(ctap2Handler *ctap2.Handler) {
-	dev, err := fidohid.New("authentik-biokey", ctap2Handler)
+	dev, err := fidohid.New("blueripple-passkey", ctap2Handler)
 	if err != nil {
 		log.Fatalf("Failed to create virtual FIDO2 device: %v", err)
 	}
@@ -182,7 +187,7 @@ func runDaemonWithTray(ctap2Handler *ctap2.Handler) {
 			return // already running
 		}
 
-		d, err := fidohid.New("authentik-biokey", ctap2Handler)
+		d, err := fidohid.New("blueripple-passkey", ctap2Handler)
 		if err != nil {
 			log.Printf("Failed to create virtual FIDO2 device: %v", err)
 			return
@@ -367,6 +372,27 @@ func validRPID(rpID string) bool {
 	return true
 }
 
+func credentialStoragePath(homeDir string) string {
+	currentPath := filepath.Join(homeDir, ".local", "share", "blueripple-passkey", "credentials.json")
+	legacyPath := filepath.Join(homeDir, ".local", "share", "authentik-biometric", "credentials.json")
+	if _, err := os.Stat(currentPath); err == nil {
+		return currentPath
+	}
+	if _, err := os.Stat(legacyPath); err != nil {
+		return currentPath
+	}
+	if err := os.MkdirAll(filepath.Dir(currentPath), 0700); err != nil {
+		log.Printf("Could not prepare renamed credential directory: %v", err)
+		return legacyPath
+	}
+	if err := os.Rename(legacyPath, currentPath); err != nil {
+		log.Printf("Could not migrate existing credentials: %v", err)
+		return legacyPath
+	}
+	log.Printf("Migrated existing credentials to %s", currentPath)
+	return currentPath
+}
+
 func runChecks(tpmDevice string, rpIDs []string) bool {
 	type check struct {
 		name string
@@ -380,8 +406,8 @@ func runChecks(tpmDevice string, rpIDs []string) bool {
 	}
 
 	ok := true
-	fmt.Printf("Authentik BioKey preflight\n")
-	fmt.Printf("  allowed Authentik host(s): %s\n", strings.Join(rpIDs, ", "))
+	fmt.Printf("BlueRipple Passkey preflight\n")
+	fmt.Printf("  allowed authentik host(s): %s\n", strings.Join(rpIDs, ", "))
 	for _, item := range checks {
 		if item.err != nil {
 			fmt.Printf("  [missing] %s: %v\n", item.name, item.err)

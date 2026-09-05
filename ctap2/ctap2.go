@@ -7,7 +7,7 @@ import (
 	"math/big"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/homepalaca/authentik-biometric/userpresence"
+	"github.com/sqsergio1995/blueripple-passkey/userpresence"
 )
 
 // Signer is the interface that the TPM or memory backend must implement
@@ -46,6 +46,8 @@ type assertionState struct {
 func NewHandler(signer Signer, presence *userpresence.UserPresence, storage *CredentialStorage, allowedRPIDs []string) *Handler {
 	// A stable AAGUID identifies this authenticator implementation without
 	// pretending to be certified hardware.
+	// Keep the original implementation identifier so credentials enrolled before
+	// the BlueRipple Passkey rename remain recognizable.
 	hash := sha256.Sum256([]byte("authentik-biometric-v1"))
 	var aaguid [16]byte
 	copy(aaguid[:], hash[:16])
@@ -65,7 +67,7 @@ func NewHandler(signer Signer, presence *userpresence.UserPresence, storage *Cre
 }
 
 // IsRPIDAllowed applies an exact, fail-closed relying-party allowlist. The
-// daemon is intentionally scoped to the user's Authentik host instead of
+// daemon is intentionally scoped to the user's authentik host instead of
 // silently becoming a general-purpose software security key.
 func (h *Handler) IsRPIDAllowed(rpID string) bool {
 	_, ok := h.allowedRPIDs[rpID]

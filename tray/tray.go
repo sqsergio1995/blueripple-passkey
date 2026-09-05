@@ -1,5 +1,5 @@
 // Package tray provides a GNOME system tray icon for toggling the
-// Authentik BioKey virtual FIDO2 device on and off.
+// BlueRipple Passkey virtual FIDO2 device on and off.
 //
 // It uses fyne.io/systray which implements the D-Bus StatusNotifierItem
 // protocol in pure Go — no CGo or GTK required. Works with Ubuntu's
@@ -60,13 +60,13 @@ func (t *Tray) SetActive(active bool) {
 	t.active = active
 	if active {
 		systray.SetIcon(iconActive)
-		systray.SetTooltip("Authentik BioKey: Active")
-		t.status.SetTitle("Authentik BioKey: Active")
+		systray.SetTooltip("BlueRipple Passkey: Active")
+		t.status.SetTitle("BlueRipple Passkey: Active")
 		t.toggle.SetTitle("Disable Fingerprint Key")
 	} else {
 		systray.SetIcon(iconInactive)
-		systray.SetTooltip("Authentik BioKey: Disabled")
-		t.status.SetTitle("Authentik BioKey: Disabled")
+		systray.SetTooltip("BlueRipple Passkey: Disabled")
+		t.status.SetTitle("BlueRipple Passkey: Disabled")
 		t.toggle.SetTitle("Enable Fingerprint Key")
 	}
 }
@@ -97,9 +97,9 @@ func (t *Tray) SetYubiKeyDetected(detected bool, name string) {
 }
 
 func (t *Tray) onReady() {
-	systray.SetTitle("Authentik BioKey")
+	systray.SetTitle("BlueRipple Passkey")
 
-	t.status = systray.AddMenuItem("Authentik BioKey: Active", "")
+	t.status = systray.AddMenuItem("BlueRipple Passkey: Active", "")
 	t.status.Disable() // non-clickable status line
 
 	systray.AddSeparator()
@@ -116,7 +116,7 @@ func (t *Tray) onReady() {
 
 	systray.AddSeparator()
 
-	mQuit := systray.AddMenuItem("Quit", "Stop Authentik BioKey")
+	mQuit := systray.AddMenuItem("Quit", "Stop BlueRipple Passkey")
 
 	// Set initial state (must be after menu items are created)
 	t.SetActive(true)

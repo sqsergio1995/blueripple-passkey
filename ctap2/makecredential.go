@@ -61,7 +61,7 @@ func (h *Handler) MakeCredential(ctx context.Context, req *MakeCredentialRequest
 	copy(challengeParam[:], req.ClientDataHash)
 	copy(appParam[:], rpIDHash[:])
 
-	pinResultCh, err := h.presence.ConfirmPresence("Register an Authentik passkey for "+req.RP.ID, challengeParam, appParam)
+	pinResultCh, err := h.presence.ConfirmPresence("Register an authentik passkey for "+req.RP.ID, challengeParam, appParam)
 	if err != nil {
 		log.Printf("CTAP2 MakeCredential: user presence error: %s", err)
 		return StatusOperationDenied, nil

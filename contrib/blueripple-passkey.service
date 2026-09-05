@@ -1,11 +1,11 @@
 [Unit]
-Description=Authentik BioKey (TPM-backed biometric passkey)
+Description=BlueRipple Passkey (TPM-backed biometric passkey for authentik)
 After=graphical-session.target
 
 [Service]
 Type=simple
-EnvironmentFile=%h/.config/authentik-biometric/config.env
-ExecStart=%h/.local/bin/authentik-biometric --tray
+EnvironmentFile=%h/.config/blueripple-passkey/config.env
+ExecStart=%h/.local/bin/blueripple-passkey --tray
 Restart=on-failure
 RestartSec=3
 UMask=0077
@@ -13,7 +13,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=%h/.local/share/authentik-biometric
+ReadWritePaths=%h/.local/share/blueripple-passkey
 RestrictNamespaces=true
 LockPersonality=true
 MemoryDenyWriteExecute=true

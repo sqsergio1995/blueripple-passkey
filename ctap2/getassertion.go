@@ -96,7 +96,7 @@ func (h *Handler) GetAssertion(ctx context.Context, req *GetAssertionRequest) (b
 	copy(challengeParam[:], req.ClientDataHash)
 	copy(appParam[:], rpIDHash[:])
 
-	pinResultCh, err := h.presence.ConfirmPresence("Sign in to Authentik at "+req.RPID, challengeParam, appParam)
+	pinResultCh, err := h.presence.ConfirmPresence("Sign in to authentik at "+req.RPID, challengeParam, appParam)
 	if err != nil {
 		log.Printf("CTAP2 GetAssertion: user presence error: %s", err)
 		return StatusOperationDenied, nil

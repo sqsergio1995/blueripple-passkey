@@ -92,7 +92,7 @@ func (up *UserPresence) promptFingerprint(req *request, prompt string) {
 
 	// Send notification to user (non-blocking)
 	notifyCmd := exec.Command("notify-send", "-u", "critical", "-t", "30000",
-		"Authentik BioKey", prompt+"\n\nTouch the fingerprint sensor to approve.")
+		"BlueRipple Passkey", prompt+"\n\nTouch the fingerprint sensor to approve.")
 	if err := notifyCmd.Start(); err != nil {
 		log.Printf("userpresence: notify-send failed to start: %v", err)
 		// Continue anyway - fingerprint verification is the important part

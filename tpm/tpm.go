@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/google/go-tpm/tpm2"
-	"github.com/homepalaca/authentik-biometric/internal/lencode"
+	"github.com/sqsergio1995/blueripple-passkey/internal/lencode"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
 	"golang.org/x/crypto/hkdf"
@@ -46,6 +46,8 @@ func New(devicePath string) (*TPM, error) {
 }
 
 func primaryKeyTmpl(seed, applicationParam []byte) tpm2.Public {
+	// This stable derivation label must not change during a product rename: doing
+	// so would make existing TPM-backed credentials unusable.
 	info := append([]byte("authentik-biometric-application-key-v1"), applicationParam...)
 
 	r := hkdf.New(sha256.New, seed, []byte{}, info)

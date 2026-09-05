@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -16,6 +18,29 @@ func TestConfiguredRPIDs(t *testing.T) {
 	want := []string{"auth.example.com", "login.example.com"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("configuredRPIDs = %#v, want %#v", got, want)
+	}
+}
+
+func TestCredentialStoragePathMigratesLegacyFile(t *testing.T) {
+	homeDir := t.TempDir()
+	legacyPath := filepath.Join(homeDir, ".local", "share", "authentik-biometric", "credentials.json")
+	if err := os.MkdirAll(filepath.Dir(legacyPath), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacyPath, []byte("[]"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	got := credentialStoragePath(homeDir)
+	want := filepath.Join(homeDir, ".local", "share", "blueripple-passkey", "credentials.json")
+	if got != want {
+		t.Fatalf("credentialStoragePath = %q, want %q", got, want)
+	}
+	if _, err := os.Stat(want); err != nil {
+		t.Fatalf("migrated credential file: %v", err)
+	}
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Fatalf("legacy credential file still exists: %v", err)
 	}
 }
 

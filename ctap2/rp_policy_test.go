@@ -9,7 +9,7 @@ func TestRPIDAllowlistIsExactAndFailClosed(t *testing.T) {
 	h := NewHandler(nil, nil, nil, []string{"auth.example.com"})
 
 	if !h.IsRPIDAllowed("auth.example.com") {
-		t.Fatal("configured Authentik host was denied")
+		t.Fatal("configured authentik host was denied")
 	}
 	for _, value := range []string{"example.com", "evil.auth.example.com", "AUTH.EXAMPLE.COM", ""} {
 		if h.IsRPIDAllowed(value) {

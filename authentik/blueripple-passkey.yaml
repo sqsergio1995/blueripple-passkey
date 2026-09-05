@@ -1,25 +1,25 @@
 version: 1
 metadata:
-  name: Authentik BioKey passwordless flow
+  name: BlueRipple Passkey passwordless flow
   labels:
     blueprints.goauthentik.io/description: TPM-backed Linux fingerprint passkey enrollment and sign-in
 entries:
   - model: authentik_flows.flow
-    id: biokey-enrollment-flow
+    id: blueripple-passkey-enrollment-flow
     identifiers:
-      slug: authentik-biokey-enrollment
+      slug: blueripple-passkey-enrollment
     attrs:
-      name: Authentik BioKey enrollment
+      name: BlueRipple Passkey enrollment
       title: Add this Linux fingerprint
       designation: stage_configuration
       authentication: require_authenticated
 
   - model: authentik_stages_authenticator_webauthn.authenticatorwebauthnstage
-    id: biokey-enrollment-stage
+    id: blueripple-passkey-enrollment-stage
     identifiers:
-      name: authentik-biokey-enrollment
+      name: blueripple-passkey-enrollment
     attrs:
-      configure_flow: !KeyOf biokey-enrollment-flow
+      configure_flow: !KeyOf blueripple-passkey-enrollment-flow
       friendly_name: Linux fingerprint
       user_verification: required
       resident_key_requirement: required
@@ -30,24 +30,24 @@ entries:
 
   - model: authentik_flows.flowstagebinding
     identifiers:
-      target: !KeyOf biokey-enrollment-flow
-      stage: !KeyOf biokey-enrollment-stage
+      target: !KeyOf blueripple-passkey-enrollment-flow
+      stage: !KeyOf blueripple-passkey-enrollment-stage
       order: 10
 
   - model: authentik_flows.flow
-    id: biokey-login-flow
+    id: blueripple-passkey-login-flow
     identifiers:
-      slug: authentik-biokey-login
+      slug: blueripple-passkey-login
     attrs:
-      name: Authentik BioKey passwordless login
+      name: BlueRipple Passkey passwordless login
       title: Sign in with your Linux fingerprint
       designation: authentication
       authentication: none
 
   - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
-    id: biokey-validation-stage
+    id: blueripple-passkey-validation-stage
     identifiers:
-      name: authentik-biokey-validation
+      name: blueripple-passkey-validation
     attrs:
       device_classes:
         - webauthn
@@ -58,18 +58,18 @@ entries:
         - security-key
 
   - model: authentik_stages_user_login.userloginstage
-    id: biokey-login-stage
+    id: blueripple-passkey-login-stage
     identifiers:
-      name: authentik-biokey-login
+      name: blueripple-passkey-login
 
   - model: authentik_flows.flowstagebinding
     identifiers:
-      target: !KeyOf biokey-login-flow
-      stage: !KeyOf biokey-validation-stage
+      target: !KeyOf blueripple-passkey-login-flow
+      stage: !KeyOf blueripple-passkey-validation-stage
       order: 10
 
   - model: authentik_flows.flowstagebinding
     identifiers:
-      target: !KeyOf biokey-login-flow
-      stage: !KeyOf biokey-login-stage
+      target: !KeyOf blueripple-passkey-login-flow
+      stage: !KeyOf blueripple-passkey-login-stage
       order: 20

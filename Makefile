@@ -1,4 +1,4 @@
-BINARY_NAME := authentik-biometric
+BINARY_NAME := blueripple-passkey
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BUILD_TIME := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME)
@@ -26,7 +26,7 @@ clean:
 	rm -f -- $(BINARY_NAME)
 
 help:
-	@echo "Authentik BioKey"
+	@echo "BlueRipple Passkey"
 	@echo "  make build  Build the Linux binary"
 	@echo "  make dist   Build a checksummed x86-64 release binary"
 	@echo "  make test   Run unit tests"

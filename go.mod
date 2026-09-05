@@ -1,4 +1,4 @@
-module github.com/homepalaca/authentik-biometric
+module github.com/sqsergio1995/blueripple-passkey
 
 go 1.24.0
 

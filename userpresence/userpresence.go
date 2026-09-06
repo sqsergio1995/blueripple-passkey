@@ -3,10 +3,14 @@ package userpresence
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -14,12 +18,13 @@ import (
 type UserPresence struct {
 	mu            sync.Mutex
 	activeRequest *request
+	fprintdVerify string
+	notifySend    string
 }
 
 type request struct {
 	timeout          time.Duration
 	pendingResult    chan Result
-	extendTimeout    chan time.Duration
 	challengeParam   [32]byte
 	applicationParam [32]byte
 }
@@ -30,9 +35,42 @@ type Result struct {
 	Error error
 }
 
-// New creates a new UserPresence handler
-func New() *UserPresence {
-	return &UserPresence{}
+// New creates a user-presence handler that invokes only trusted system
+// executables. The user's PATH is not part of the authentication boundary.
+func New() (*UserPresence, error) {
+	fprintdVerify, err := trustedExecutable("fprintd-verify")
+	if err != nil {
+		return nil, err
+	}
+	notifySend, _ := trustedExecutable("notify-send")
+	return &UserPresence{fprintdVerify: fprintdVerify, notifySend: notifySend}, nil
+}
+
+// CheckFingerprintVerifier validates the security-sensitive helper without
+// starting a fingerprint prompt.
+func CheckFingerprintVerifier() error {
+	_, err := trustedExecutable("fprintd-verify")
+	return err
+}
+
+func trustedExecutable(name string) (string, error) {
+	for _, dir := range []string{"/usr/bin", "/bin", "/usr/local/bin"} {
+		candidate := filepath.Join(dir, name)
+		resolved, err := filepath.EvalSymlinks(candidate)
+		if err != nil {
+			continue
+		}
+		info, err := os.Stat(resolved)
+		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 || info.Mode().Perm()&0022 != 0 {
+			continue
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok || stat.Uid != 0 {
+			continue
+		}
+		return resolved, nil
+	}
+	return "", fmt.Errorf("%s must be installed as a root-owned, non-writable executable in /usr/bin, /bin, or /usr/local/bin", name)
 }
 
 // ConfirmPresence requests user presence confirmation via fingerprint
@@ -43,20 +81,7 @@ func (up *UserPresence) ConfirmPresence(prompt string, challengeParam, applicati
 	timeout := 30 * time.Second
 
 	if up.activeRequest != nil {
-		if challengeParam != up.activeRequest.challengeParam || applicationParam != up.activeRequest.applicationParam {
-			return nil, errors.New("other request already in progress")
-		}
-
-		extendTimeoutChan := up.activeRequest.extendTimeout
-
-		go func() {
-			select {
-			case extendTimeoutChan <- timeout:
-			case <-time.After(2 * time.Second):
-			}
-		}()
-
-		return up.activeRequest.pendingResult, nil
+		return nil, errors.New("other request already in progress")
 	}
 
 	up.activeRequest = &request{
@@ -64,7 +89,6 @@ func (up *UserPresence) ConfirmPresence(prompt string, challengeParam, applicati
 		challengeParam:   challengeParam,
 		applicationParam: applicationParam,
 		pendingResult:    make(chan Result),
-		extendTimeout:    make(chan time.Duration),
 	}
 
 	go up.promptFingerprint(up.activeRequest, prompt)
@@ -90,23 +114,26 @@ func (up *UserPresence) promptFingerprint(req *request, prompt string) {
 
 	log.Printf("userpresence: prompt=%s", prompt)
 
-	// Send notification to user (non-blocking)
-	notifyCmd := exec.Command("notify-send", "-u", "critical", "-t", "30000",
-		"BlueRipple Passkey", prompt+"\n\nTouch the fingerprint sensor to approve.")
-	if err := notifyCmd.Start(); err != nil {
-		log.Printf("userpresence: notify-send failed to start: %v", err)
-		// Continue anyway - fingerprint verification is the important part
+	// Send an optional notification without trusting the user's PATH.
+	if up.notifySend != "" {
+		notifyCmd := exec.CommandContext(ctx, up.notifySend, "-u", "critical", "-t", "30000",
+			"BlueRipple Passkey", prompt+"\n\nTouch the fingerprint sensor to approve.")
+		go func() {
+			if err := notifyCmd.Run(); err != nil && ctx.Err() == nil {
+				log.Printf("userpresence: desktop notification failed")
+			}
+		}()
 	}
 
 	// Run fprintd-verify with context timeout
 	log.Printf("userpresence: launching fprintd-verify")
-	fprintCmd := exec.CommandContext(ctx, "fprintd-verify")
-	fprintCmd.Stdout = os.Stderr // Must not use stdout - Native Messaging uses it
-	fprintCmd.Stderr = os.Stderr
+	fprintCmd := exec.CommandContext(ctx, up.fprintdVerify)
+	fprintCmd.Stdout = io.Discard
+	fprintCmd.Stderr = io.Discard
 
 	err := fprintCmd.Run()
 	if err != nil {
-		log.Printf("userpresence: fprintd-verify failed: %v", err)
+		log.Printf("userpresence: fingerprint verification failed")
 		if ctx.Err() == context.DeadlineExceeded {
 			sendResult(Result{OK: false, Error: errors.New("fingerprint verification timed out")})
 		} else {

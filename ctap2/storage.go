@@ -47,11 +47,17 @@ func NewCredentialStorage(filePath string) (*CredentialStorage, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
+	if err := os.Chmod(dir, 0700); err != nil {
+		return nil, err
+	}
 
 	// Load existing credentials if file exists
 	if _, err := os.Stat(filePath); err == nil {
+		if err := os.Chmod(filePath, 0600); err != nil {
+			return nil, err
+		}
 		if err := cs.load(); err != nil {
-			log.Printf("Warning: failed to load credentials from %s: %v", filePath, err)
+			log.Printf("Warning: failed to load credential metadata: %v", err)
 			// Continue with empty storage
 		}
 	}
@@ -74,24 +80,45 @@ func (cs *CredentialStorage) load() error {
 	cs.credentials = credentials
 	cs.rebuildIndexes()
 
-	log.Printf("CredentialStorage: Loaded %d credentials from %s", len(credentials), cs.filePath)
+	log.Printf("CredentialStorage: Loaded %d credentials", len(credentials))
 	return nil
 }
 
 // save writes credentials to disk
-func (cs *CredentialStorage) save() error {
+func (cs *CredentialStorage) save() (err error) {
 	data, err := json.MarshalIndent(cs.credentials, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	// Write atomically using temp file + rename
-	tmpPath := cs.filePath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
+	// Write atomically without reusing a potentially permissive stale temp file.
+	dir := filepath.Dir(cs.filePath)
+	tmp, err := os.CreateTemp(dir, ".credentials-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer func() {
+		_ = tmp.Close()
+		if err != nil {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if err = tmp.Chmod(0600); err != nil {
+		return err
+	}
+	if _, err = tmp.Write(data); err != nil {
+		return err
+	}
+	if err = tmp.Sync(); err != nil {
+		return err
+	}
+	if err = tmp.Close(); err != nil {
 		return err
 	}
 
-	return os.Rename(tmpPath, cs.filePath)
+	err = os.Rename(tmpPath, cs.filePath)
+	return err
 }
 
 // rebuildIndexes rebuilds the in-memory lookup indexes
@@ -118,14 +145,14 @@ func (cs *CredentialStorage) Save(cred *CredentialMetadata) error {
 			// Replace existing credential
 			cs.credentials[i] = cred
 			found = true
-			log.Printf("CredentialStorage: Replaced credential for RP=%s, User=%s", cred.RPID, cred.UserName)
+			log.Printf("CredentialStorage: Replaced credential for RP=%s", cred.RPID)
 			break
 		}
 	}
 
 	if !found {
 		cs.credentials = append(cs.credentials, cred)
-		log.Printf("CredentialStorage: Added new credential for RP=%s, User=%s", cred.RPID, cred.UserName)
+		log.Printf("CredentialStorage: Added new credential for RP=%s", cred.RPID)
 	}
 
 	cs.rebuildIndexes()

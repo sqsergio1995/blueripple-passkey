@@ -79,7 +79,7 @@ func (h *Handler) GetAssertion(ctx context.Context, req *GetAssertionRequest) (b
 			if err == nil {
 				validCredentials = append(validCredentials, cred)
 			} else {
-				log.Printf("CTAP2 GetAssertion: Stored credential no longer valid (TPM key deleted?), user=%s", cred.UserName)
+				log.Printf("CTAP2 GetAssertion: Stored credential no longer valid (TPM key deleted?)")
 			}
 		}
 
@@ -108,6 +108,9 @@ func (h *Handler) GetAssertion(ctx context.Context, req *GetAssertionRequest) (b
 
 	select {
 	case result := <-pinResultCh:
+		if childCtx.Err() != nil {
+			return StatusUserActionTimeout, nil
+		}
 		if !result.OK {
 			log.Printf("CTAP2 GetAssertion: User denied or error: %v", result.Error)
 			return StatusOperationDenied, nil
@@ -230,7 +233,7 @@ func (h *Handler) buildAssertionResponse(ctx context.Context, cred *CredentialMe
 		return StatusOther, nil
 	}
 
-	log.Printf("CTAP2 GetAssertion: Success (resident, user=%s), response=%d bytes", cred.UserName, len(encoded))
+	log.Printf("CTAP2 GetAssertion: Success (resident), response=%d bytes", len(encoded))
 	return StatusSuccess, encoded
 }
 

@@ -36,9 +36,10 @@ var fidoReportDescriptor = []byte{
 
 // CTAPHID constants
 const (
-	reportLen   = 64
-	initDataLen = 57 // 64 - 4(CID) - 1(CMD) - 2(BCNT)
-	contDataLen = 59 // 64 - 4(CID) - 1(SEQ)
+	reportLen     = 64
+	initDataLen   = 57 // 64 - 4(CID) - 1(CMD) - 2(BCNT)
+	contDataLen   = 59 // 64 - 4(CID) - 1(SEQ)
+	maxMessageLen = 1200
 
 	broadcastCID uint32 = 0xFFFFFFFF
 )
@@ -120,7 +121,7 @@ func New(name string, handler CommandHandler) (*Device, error) {
 	}
 
 	// Appear as a USB FIDO2 device
-	dev.Data.Bus = 0x03       // BUS_USB
+	dev.Data.Bus = 0x03         // BUS_USB
 	dev.Data.VendorID = 0x1209  // pid.codes open-source VID
 	dev.Data.ProductID = 0xF1D0 // FIDO-themed PID
 
@@ -227,13 +228,21 @@ func (d *Device) handleInitPacket(cid uint32, cmd byte, bcnt uint16, payload []b
 
 	// INIT on broadcast CID is always allowed
 	if cmd == cmdInit {
-		d.handleInit(cid, payload[:min(int(bcnt), len(payload))])
+		if bcnt != 8 || len(payload) < 8 {
+			d.sendError(cid, errInvalidLen)
+			return
+		}
+		d.handleInit(cid, payload[:8])
 		return
 	}
 
 	// All other commands require a valid (non-broadcast) CID
 	if cid == broadcastCID {
 		d.sendError(cid, errInvalidChannel)
+		return
+	}
+	if bcnt > maxMessageLen {
+		d.sendError(cid, errInvalidLen)
 		return
 	}
 

@@ -12,7 +12,7 @@ import (
 
 // MakeCredential handles the authenticatorMakeCredential command
 func (h *Handler) MakeCredential(ctx context.Context, req *MakeCredentialRequest) (byte, []byte) {
-	log.Printf("CTAP2 MakeCredential: RP=%s, User=%s", req.RP.ID, req.User.Name)
+	log.Printf("CTAP2 MakeCredential: RP=%s", req.RP.ID)
 	log.Printf("CTAP2 MakeCredential: Options=%+v", req.Options)
 	log.Printf("CTAP2 MakeCredential: Extensions=%+v", req.Extensions)
 
@@ -73,6 +73,9 @@ func (h *Handler) MakeCredential(ctx context.Context, req *MakeCredentialRequest
 
 	select {
 	case result := <-pinResultCh:
+		if childCtx.Err() != nil {
+			return StatusUserActionTimeout, nil
+		}
 		if !result.OK {
 			log.Printf("CTAP2 MakeCredential: User denied or error: %v", result.Error)
 			return StatusOperationDenied, nil

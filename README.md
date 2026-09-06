@@ -30,14 +30,17 @@ reader; authentik receives only a standards-based WebAuthn assertion.
 
 - Linux with `/dev/tpmrm0` and the `uhid` kernel module
 - A fingerprint reader supported by `fprintd`, with a finger already enrolled
-- Go 1.24 or newer when building from source (not needed for the included
-  x86-64 binary)
+- Go 1.25.14 or a later security-patched release when building from source
+  (not needed for the included x86-64 binary)
 - `notify-send`, systemd user services, and a native or FIDO-enabled browser
 - authentik served over HTTPS
 
 The implementation is experimental and has not completed FIDO certification or
 an independent security audit. Keep an authentik recovery method (a hardware
-security key or static recovery codes) before removing TOTP.
+security key or static recovery codes) before removing TOTP. Read the
+[`SECURITY.md`](SECURITY.md), [`THREAT_MODEL.md`](THREAT_MODEL.md),
+[`PRIVACY.md`](PRIVACY.md), and [`DISCLAIMER.md`](DISCLAIMER.md) documents
+before deployment.
 
 ## Install
 
@@ -163,8 +166,9 @@ and a browser. Unit tests deliberately use no biometric or TPM hardware.
   WebAuthn UV flag only after `fprintd-verify` succeeds.
 - The user service uses a restrictive umask and systemd sandboxing.
 - authentik still controls identity, sessions, access policy, and recovery.
-- A compromised root account, kernel, browser, `fprintd`, or TPM firmware is
-  outside this application's protection boundary.
+- The fingerprint check is an application-level gate rather than a TPM policy.
+  A compromised root account, logged-in user, kernel, browser, `fprintd`, or TPM
+  firmware is outside this application's protection boundary.
 
 See `THIRD_PARTY_NOTICES.md` for upstream attribution. This project is not
-affiliated with Authentik Security Inc.
+affiliated with, sponsored by, or endorsed by Authentik Security Inc.

@@ -14,8 +14,11 @@ Direct pushes to `main` are not accepted. Pull requests require the automated
 build and review by the repository owner, `@sqsergio1995`, before they can be
 merged. Only the repository owner merges accepted changes.
 
-By submitting a contribution, you agree that it may be distributed under the
-project's MIT License.
+By submitting a contribution, you represent that you created it or otherwise
+have the right to submit it, that it does not knowingly include confidential or
+third-party material you lack permission to disclose, and that it may be
+distributed under the project's MIT License. The maintainer may decline any
+contribution.
 
 ## Security reports
 

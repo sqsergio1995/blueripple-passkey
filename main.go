@@ -104,7 +104,10 @@ func main() {
 	}
 
 	// Initialize user presence handler
-	presence := userpresence.New()
+	presence, err := userpresence.New()
+	if err != nil {
+		log.Fatalf("Failed to initialize fingerprint verification: %v", err)
+	}
 	log.Printf("User presence handler initialized")
 
 	// Initialize credential storage for resident keys
@@ -117,7 +120,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create credential storage: %v", err)
 	}
-	log.Printf("Credential storage initialized at %s (%d credentials)", storagePath, storage.Count())
+	log.Printf("Credential storage initialized (%d credentials)", storage.Count())
 
 	// Create CTAP2 handler
 	ctap2Handler := ctap2.NewHandler(signer, presence, storage, rpIDs)
@@ -389,7 +392,7 @@ func credentialStoragePath(homeDir string) string {
 		log.Printf("Could not migrate existing credentials: %v", err)
 		return legacyPath
 	}
-	log.Printf("Migrated existing credentials to %s", currentPath)
+	log.Printf("Migrated existing credentials to the current data directory")
 	return currentPath
 }
 
@@ -401,7 +404,7 @@ func runChecks(tpmDevice string, rpIDs []string) bool {
 	checks := []check{
 		{name: "TPM device " + tpmDevice, err: pathExists(tpmDevice)},
 		{name: "UHID device /dev/uhid", err: pathExists("/dev/uhid")},
-		{name: "fingerprint verifier", err: commandExists("fprintd-verify")},
+		{name: "trusted fingerprint verifier", err: userpresence.CheckFingerprintVerifier()},
 		{name: "desktop notifications", err: commandExists("notify-send")},
 	}
 

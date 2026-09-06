@@ -2,8 +2,10 @@ package tpm
 
 import (
 	"bytes"
+	"crypto/hkdf"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/asn1"
 	"fmt"
 	"io"
 	"math/big"
@@ -12,9 +14,6 @@ import (
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/sqsergio1995/blueripple-passkey/internal/lencode"
-	"golang.org/x/crypto/cryptobyte"
-	"golang.org/x/crypto/cryptobyte/asn1"
-	"golang.org/x/crypto/hkdf"
 )
 
 var (
@@ -50,16 +49,13 @@ func primaryKeyTmpl(seed, applicationParam []byte) tpm2.Public {
 	// so would make existing TPM-backed credentials unusable.
 	info := append([]byte("authentik-biometric-application-key-v1"), applicationParam...)
 
-	r := hkdf.New(sha256.New, seed, []byte{}, info)
+	derived, err := hkdf.Key(sha256.New, seed, nil, string(info), 64)
+	if err != nil {
+		panic(err)
+	}
 	unique := tpm2.ECPoint{
-		XRaw: make([]byte, 32),
-		YRaw: make([]byte, 32),
-	}
-	if _, err := io.ReadFull(r, unique.XRaw); err != nil {
-		panic(err)
-	}
-	if _, err := io.ReadFull(r, unique.YRaw); err != nil {
-		panic(err)
+		XRaw: append([]byte(nil), derived[:32]...),
+		YRaw: append([]byte(nil), derived[32:]...),
 	}
 
 	return tpm2.Public{
@@ -161,6 +157,10 @@ func (t *TPM) RegisterKey(applicationParam []byte) ([]byte, *big.Int, *big.Int, 
 }
 
 func (t *TPM) SignASN1(keyHandle, applicationParam, digest []byte) ([]byte, error) {
+	if len(digest) != sha256.Size {
+		return nil, fmt.Errorf("invalid SHA-256 digest length: %d", len(digest))
+	}
+
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -220,13 +220,10 @@ func (t *TPM) SignASN1(keyHandle, applicationParam, digest []byte) ([]byte, erro
 		return nil, fmt.Errorf("sign err: %w", err)
 	}
 
-	var b cryptobyte.Builder
-	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-		b.AddASN1BigInt(sig.ECC.R)
-		b.AddASN1BigInt(sig.ECC.S)
-	})
-
-	return b.Bytes()
+	return asn1.Marshal(struct {
+		R *big.Int
+		S *big.Int
+	}{sig.ECC.R, sig.ECC.S})
 }
 
 func mustRand(size int) []byte {

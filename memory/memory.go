@@ -1,30 +1,38 @@
 package memory
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"math/big"
-
-	"golang.org/x/crypto/chacha20poly1305"
+	"sync/atomic"
 )
 
 type Mem struct {
 	masterPrivateKey []byte
-	signCounter      uint32
+	signCounter      atomic.Uint32
 }
 
 func New() (*Mem, error) {
 	return &Mem{
-		masterPrivateKey: mustRand(chacha20poly1305.KeySize),
+		masterPrivateKey: mustRand(32),
 	}, nil
 }
 
 func (m *Mem) Counter() uint32 {
-	m.signCounter++
-	return m.signCounter
+	return m.signCounter.Add(1)
+}
+
+func (m *Mem) aead() (cipher.AEAD, error) {
+	block, err := aes.NewCipher(m.masterPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return cipher.NewGCM(block)
 }
 
 func (m *Mem) RegisterKey(applicationParam []byte) ([]byte, *big.Int, *big.Int, error) {
@@ -41,12 +49,12 @@ func (m *Mem) RegisterKey(applicationParam []byte) ([]byte, *big.Int, *big.Int, 
 	h.Write(metadata)
 	sum := h.Sum(nil)
 
-	aead, err := chacha20poly1305.NewX(m.masterPrivateKey)
+	aead, err := m.aead()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("chacha NewX err: %w", err)
+		return nil, nil, nil, fmt.Errorf("create AES-GCM wrapper: %w", err)
 	}
 
-	nonce := mustRand(chacha20poly1305.NonceSizeX)
+	nonce := mustRand(aead.NonceSize())
 	encryptedChildPrivateKey := aead.Seal(nil, nonce, childPrivateKey, sum)
 
 	keyHandle := make([]byte, 0, len(nonce)+len(encryptedChildPrivateKey))
@@ -61,16 +69,20 @@ func (m *Mem) RegisterKey(applicationParam []byte) ([]byte, *big.Int, *big.Int, 
 }
 
 func (m *Mem) SignASN1(keyHandle, applicationParam, digest []byte) ([]byte, error) {
-	aead, err := chacha20poly1305.NewX(m.masterPrivateKey)
-	if err != nil {
-		panic(err)
+	if len(digest) != sha256.Size {
+		return nil, fmt.Errorf("invalid SHA-256 digest length: %d", len(digest))
 	}
 
-	if len(keyHandle) < chacha20poly1305.NonceSizeX {
-		return nil, fmt.Errorf("incorrect size for key handle: %d smaller than nonce)", len(keyHandle))
+	aead, err := m.aead()
+	if err != nil {
+		return nil, fmt.Errorf("create AES-GCM wrapper: %w", err)
 	}
-	nonce := keyHandle[:chacha20poly1305.NonceSizeX]
-	cipherText := keyHandle[chacha20poly1305.NonceSizeX:]
+
+	if len(keyHandle) < aead.NonceSize() {
+		return nil, fmt.Errorf("incorrect size for key handle: %d smaller than nonce", len(keyHandle))
+	}
+	nonce := keyHandle[:aead.NonceSize()]
+	cipherText := keyHandle[aead.NonceSize():]
 
 	metadata := []byte("fido_wrapping_key")
 	metadata = append(metadata, applicationParam[:]...)

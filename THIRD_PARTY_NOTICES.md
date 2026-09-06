@@ -19,8 +19,8 @@ through the linked upstream repositories.
 
 | Module | Version | License |
 | --- | --- | --- |
-| [fyne.io/systray](https://github.com/fyne-io/systray) | v1.12.0 | Apache-2.0 |
-| [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor) | v2.9.0 | MIT |
+| [fyne.io/systray](https://github.com/fyne-io/systray) | v1.12.2 | Apache-2.0 |
+| [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor) | v2.9.3 | MIT |
 | [github.com/google/go-tpm](https://github.com/google/go-tpm) | v0.3.3 | Apache-2.0 |
 | [github.com/psanford/uhid](https://github.com/psanford/uhid) | 2021-05-16 revision | BSD-3-Clause |
 | [github.com/godbus/dbus/v5](https://github.com/godbus/dbus) | v5.1.0 | BSD-2-Clause |

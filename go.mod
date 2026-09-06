@@ -7,7 +7,7 @@ toolchain go1.25.14
 require (
 	fyne.io/systray v1.12.2
 	github.com/fxamacker/cbor/v2 v2.9.3
-	github.com/google/go-tpm v0.3.3
+	github.com/google/go-tpm v0.9.8
 	github.com/psanford/uhid v0.0.0-20210516231035-a7c1e481958d
 )
 

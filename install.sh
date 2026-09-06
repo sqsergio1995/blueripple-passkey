@@ -118,7 +118,9 @@ rm -f -- "$HOME/.config/systemd/user/authentik-biometric.service"
 rm -f -- "$HOME/.local/bin/authentik-biometric"
 
 echo "Installing the UHID access rule (administrator permission required)..."
-sudo install -m 0644 "$SCRIPT_DIR/contrib/90-blueripple-passkey-uhid.rules" /etc/udev/rules.d/90-blueripple-passkey-uhid.rules
+sudo install -m 0644 "$SCRIPT_DIR/contrib/69-blueripple-passkey-uhid.rules" /etc/udev/rules.d/69-blueripple-passkey-uhid.rules
+# Versions before 0.1 installed this rule too late for systemd's uaccess pass.
+sudo rm -f -- /etc/udev/rules.d/90-blueripple-passkey-uhid.rules
 sudo install -m 0644 "$SCRIPT_DIR/contrib/uhid.conf" /etc/modules-load.d/blueripple-passkey-uhid.conf
 sudo modprobe uhid
 sudo udevadm control --reload-rules

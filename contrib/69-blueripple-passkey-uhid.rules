@@ -1,4 +1,6 @@
 # Allow BlueRipple Passkey in the active desktop session to create the virtual FIDO2 device.
+# This file must sort before 71-seat.rules and 73-seat-late.rules so systemd-logind
+# can apply the uaccess ACL to /dev/uhid.
 KERNEL=="uhid", MODE="0660", TAG+="uaccess"
 
 # Tag virtual FIDO2 hidraw device for snap browser access.

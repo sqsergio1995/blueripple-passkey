@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -65,12 +67,68 @@ func trustedExecutable(name string) (string, error) {
 			continue
 		}
 		stat, ok := info.Sys().(*syscall.Stat_t)
-		if !ok || stat.Uid != 0 {
+		if !ok || !trustedSystemOwner(stat.Uid) {
 			continue
 		}
 		return resolved, nil
 	}
 	return "", fmt.Errorf("%s must be installed as a root-owned, non-writable executable in /usr/bin, /bin, or /usr/local/bin", name)
+}
+
+// trustedSystemOwner accepts the ordinary root UID and the kernel's overflow
+// UID only when host root is not representable in the current user namespace.
+// systemd uses such a namespace when filesystem-hardening options (for example
+// ProtectSystem or PrivateTmp) are enabled on an unprivileged user service.
+// In that case a host-root-owned /usr/bin file is reported as overflowuid.
+//
+// This is used only after the caller has constrained the executable to a fixed
+// system directory and rejected group- or world-writable files.
+func trustedSystemOwner(uid uint32) bool {
+	if uid == 0 {
+		return true
+	}
+
+	overflowData, err := os.ReadFile("/proc/sys/kernel/overflowuid")
+	if err != nil {
+		return false
+	}
+	overflowUID, err := strconv.ParseUint(strings.TrimSpace(string(overflowData)), 10, 32)
+	if err != nil || uint64(uid) != overflowUID {
+		return false
+	}
+
+	uidMap, err := os.ReadFile("/proc/self/uid_map")
+	if err != nil {
+		return false
+	}
+	rootMapped, err := hostUIDMapped(uidMap, 0)
+	return err == nil && !rootMapped
+}
+
+// hostUIDMapped reports whether a host UID appears in a Linux uid_map.
+func hostUIDMapped(uidMap []byte, hostUID uint64) (bool, error) {
+	lines := strings.Split(strings.TrimSpace(string(uidMap)), "\n")
+	if len(lines) == 1 && strings.TrimSpace(lines[0]) == "" {
+		return false, errors.New("empty uid_map")
+	}
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) != 3 {
+			return false, fmt.Errorf("invalid uid_map line %q", line)
+		}
+		hostStart, err := strconv.ParseUint(fields[1], 10, 64)
+		if err != nil {
+			return false, fmt.Errorf("invalid uid_map host start: %w", err)
+		}
+		length, err := strconv.ParseUint(fields[2], 10, 64)
+		if err != nil || length == 0 {
+			return false, fmt.Errorf("invalid uid_map length %q", fields[2])
+		}
+		if hostUID >= hostStart && hostUID-hostStart < length {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // ConfirmPresence requests user presence confirmation via fingerprint
